@@ -1,0 +1,76 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDENTIALS = credentials('docker-hub-creds') // Docker Hub credentials ajoutés dans Jenkins
+        AWS_EC2_CREDENTIALS = credentials('aws-ec2-credentials-id') // AWS EC2 credentials ajoutés dans Jenkins
+    }
+
+    stages {
+        stage('Cloner le dépôt') {
+            steps {
+                git 'https://github.com/assabbour/angular-pipeline.git'
+            }
+        }
+
+        stage('Installer les dépendances') {
+            steps {
+                sh 'npm install'
+            }
+        }
+
+        stage('Exécuter les tests') {
+            steps {
+                sh 'npm test -- --watch=false --browsers=ChromeHeadless'
+            }
+        }
+
+        stage('Construire l\'image Docker') {
+            steps {
+                script {
+                    // Se connecter à Docker Hub
+                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
+                    
+                    // Construire l'image Docker
+                    sh 'docker build -t assabbour/angular-app:latest .'
+                }
+            }
+        }
+
+        stage('Pousser l\'image sur Docker Hub') {
+            steps {
+                script {
+                    // Pousser l'image Docker sur Docker Hub
+                    sh '''
+                    docker tag assabbour/angular-app:latest assabbour/angular-app:latest
+                    docker push assabbour/angular-app:latest
+                    '''
+                }
+            }
+        }
+
+        stage('Déployer sur AWS EC2') {
+            steps {
+                sshagent(['aws-ec2-credentials-id']) { // Utilise les credentials AWS EC2
+                    sh '''
+                    ssh -o StrictHostKeyChecking=no ec2-user@51.44.16.182 "
+                        docker pull assabbour/angular-app:latest &&
+                        docker stop angular-app || true &&
+                        docker rm angular-app || true &&
+                        docker run -d -p 80:80 --name angular-app assabbour/angular-app:latest
+                    "
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Pipeline terminé !'
+        }
+        failure {
+            echo 'Le pipeline a échoué. Vérifiez les logs pour plus d\'informations.'
+        }
+    }
+}
