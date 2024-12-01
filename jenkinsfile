@@ -2,37 +2,50 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('docker-hub-creds') // Docker Hub credentials ajoutés dans Jenkins
-        AWS_EC2_CREDENTIALS = credentials('aws-ec2-credentials-id') // AWS EC2 credentials ajoutés dans Jenkins
+        DOCKERHUB_CREDENTIALS = credentials('docker-hub-creds') // Docker Hub credentials
+        AWS_EC2_CREDENTIALS = credentials('aws-ec2-credentials-id') // AWS EC2 credentials
+        DOCKER_IMAGE = "assabbour/angular-app:latest" // Nom de l'image Docker
+        EC2_IP = "51.44.16.182" // Adresse IP de l'instance AWS EC2
     }
 
     stages {
         stage('Cloner le dépôt') {
             steps {
-                git 'https://github.com/assabbour/angular-pipeline.git'
+                script {
+                    echo "Étape : Cloner le dépôt démarrée."
+                    git 'https://github.com/assabbour/angular-pipeline.git'
+                    echo "Étape : Cloner le dépôt terminée avec succès."
+                }
             }
         }
 
         stage('Installer les dépendances') {
             steps {
-                sh 'npm install'
+                script {
+                    echo "Étape : Installer les dépendances démarrée."
+                    sh 'npm install'
+                    echo "Étape : Installer les dépendances terminée avec succès."
+                }
             }
         }
 
         stage('Exécuter les tests') {
             steps {
-                sh 'npm test -- --watch=false --browsers=ChromeHeadless'
+                script {
+                    echo "Étape : Exécuter les tests démarrée."
+                    sh 'npm test -- --watch=false --browsers=ChromeHeadless'
+                    echo "Étape : Exécuter les tests terminée avec succès."
+                }
             }
         }
 
         stage('Construire l\'image Docker') {
             steps {
                 script {
-                    // Se connecter à Docker Hub
+                    echo "Étape : Construire l'image Docker démarrée."
                     sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                    
-                    // Construire l'image Docker
-                    sh 'docker build -t assabbour/angular-app:latest .'
+                    sh 'docker build -t $DOCKER_IMAGE .'
+                    echo "Étape : Construire l'image Docker terminée avec succès."
                 }
             }
         }
@@ -40,26 +53,36 @@ pipeline {
         stage('Pousser l\'image sur Docker Hub') {
             steps {
                 script {
-                    // Pousser l'image Docker sur Docker Hub
+                    echo "Étape : Pousser l'image sur Docker Hub démarrée."
                     sh '''
-                    docker tag assabbour/angular-app:latest assabbour/angular-app:latest
-                    docker push assabbour/angular-app:latest
+                    docker tag $DOCKER_IMAGE $DOCKER_IMAGE
+                    docker push $DOCKER_IMAGE
                     '''
+                    echo "Étape : Pousser l'image sur Docker Hub terminée avec succès."
                 }
             }
         }
 
         stage('Déployer sur AWS EC2') {
             steps {
-                sshagent(['aws-ec2-credentials-id']) { // Utilise les credentials AWS EC2
-                    sh '''
-                    ssh -o StrictHostKeyChecking=no ec2-user@51.44.16.182 "
-                        docker pull assabbour/angular-app:latest &&
-                        docker stop angular-app || true &&
-                        docker rm angular-app || true &&
-                        docker run -d -p 80:80 --name angular-app assabbour/angular-app:latest
-                    "
-                    '''
+                script {
+                    echo "Étape : Déployer sur AWS EC2 démarrée."
+                    sshagent(['aws-ec2-credentials-id']) {
+                        sh '''
+                        ssh -o StrictHostKeyChecking=no ec2-user@$EC2_IP "
+                            if ! command -v docker &> /dev/null; then
+                                sudo yum install -y docker &&
+                                sudo service docker start &&
+                                sudo usermod -aG docker ec2-user
+                            fi &&
+                            docker pull $DOCKER_IMAGE &&
+                            docker stop angular-app || true &&
+                            docker rm angular-app || true &&
+                            docker run -d -p 80:80 --name angular-app $DOCKER_IMAGE
+                        "
+                        '''
+                    }
+                    echo "Étape : Déployer sur AWS EC2 terminée avec succès."
                 }
             }
         }
@@ -67,10 +90,10 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline terminé !'
+            echo "Pipeline terminé."
         }
         failure {
-            echo 'Le pipeline a échoué. Vérifiez les logs pour plus d\'informations.'
+            echo "Le pipeline a échoué. Vérifiez les étapes précédentes."
         }
     }
 }
