@@ -53,8 +53,8 @@ pipeline {
                 script {
                     echo "Étape : Exécuter les tests unitaires démarrée."
                     sh '''
-                    # Lancement des tests avec Karma et ChromeHeadless
-                    npm test -- --watch=false --browsers=ChromeHeadless || {
+                    # Exécuter les tests avec Angular CLI et xvfb-run
+                    xvfb-run -a ng test --watch=false --browsers=ChromeHeadless --no-progress || {
                         echo "Les tests unitaires ont échoué. Abandon du pipeline."
                         exit 1
                     }
