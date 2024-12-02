@@ -13,7 +13,7 @@ pipeline {
             steps {
                 script {
                     echo "Étape : Cloner le dépôt démarrée."
-                    git 'https://github.com/assabbour/angular-pipeline.git'
+                    git branch: 'main', url: 'https://github.com/assabbour/angular-pipeline.git'
                     echo "Étape : Cloner le dépôt terminée avec succès."
                 }
             }
@@ -33,7 +33,12 @@ pipeline {
             steps {
                 script {
                     echo "Étape : Exécuter les tests démarrée."
-                    sh 'npm test -- --watch=false --browsers=ChromeHeadless'
+                    sh '''
+                    npm test -- --watch=false --browsers=ChromeHeadless || {
+                        echo "Tests échoués. Abandon du pipeline."
+                        exit 1
+                    }
+                    '''
                     echo "Étape : Exécuter les tests terminée avec succès."
                 }
             }
@@ -43,8 +48,10 @@ pipeline {
             steps {
                 script {
                     echo "Étape : Construire l'image Docker démarrée."
-                    sh 'echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin'
-                    sh 'docker build -t $DOCKER_IMAGE .'
+                    sh '''
+                    echo $DOCKERHUB_CREDENTIALS_PSW | docker login -u $DOCKERHUB_CREDENTIALS_USR --password-stdin
+                    docker build -t $DOCKER_IMAGE .
+                    '''
                     echo "Étape : Construire l'image Docker terminée avec succès."
                 }
             }
@@ -55,7 +62,6 @@ pipeline {
                 script {
                     echo "Étape : Pousser l'image sur Docker Hub démarrée."
                     sh '''
-                    docker tag $DOCKER_IMAGE $DOCKER_IMAGE
                     docker push $DOCKER_IMAGE
                     '''
                     echo "Étape : Pousser l'image sur Docker Hub terminée avec succès."
@@ -70,14 +76,12 @@ pipeline {
                     sshagent(['aws-ec2-credentials-id']) {
                         sh '''
                         ssh -o StrictHostKeyChecking=no ec2-user@$EC2_IP "
-                            if ! command -v docker &> /dev/null; then
-                                sudo yum install -y docker &&
-                                sudo service docker start &&
-                                sudo usermod -aG docker ec2-user
-                            fi &&
-                            docker pull $DOCKER_IMAGE &&
-                            docker stop angular-app || true &&
-                            docker rm angular-app || true &&
+                            sudo yum install -y docker || echo 'Docker déjà installé';
+                            sudo service docker start;
+                            sudo usermod -aG docker ec2-user;
+                            docker pull $DOCKER_IMAGE;
+                            docker stop angular-app || echo 'Pas de conteneur en cours';
+                            docker rm angular-app || echo 'Pas de conteneur à supprimer';
                             docker run -d -p 80:80 --name angular-app $DOCKER_IMAGE
                         "
                         '''
@@ -94,6 +98,9 @@ pipeline {
         }
         failure {
             echo "Le pipeline a échoué. Vérifiez les étapes précédentes."
+        }
+        success {
+            echo "Le pipeline a réussi avec succès."
         }
     }
 }
