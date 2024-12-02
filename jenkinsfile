@@ -3,9 +3,7 @@ pipeline {
 
     environment {
         DOCKERHUB_CREDENTIALS = credentials('docker-hub-creds') // Docker Hub credentials
-        AWS_EC2_CREDENTIALS = credentials('aws-ec2-credentials-id') // AWS EC2 credentials
         DOCKER_IMAGE = "assabbour/angular-app:latest" // Nom de l'image Docker
-        EC2_IP = "51.44.16.182" // Adresse IP de l'instance AWS EC2
     }
 
     stages {
@@ -65,28 +63,6 @@ pipeline {
                     docker push $DOCKER_IMAGE
                     '''
                     echo "Étape : Pousser l'image sur Docker Hub terminée avec succès."
-                }
-            }
-        }
-
-        stage('Déployer sur AWS EC2') {
-            steps {
-                script {
-                    echo "Étape : Déployer sur AWS EC2 démarrée."
-                    sshagent(['aws-ec2-credentials-id']) {
-                        sh '''
-                        ssh -o StrictHostKeyChecking=no ec2-user@$EC2_IP "
-                            sudo yum install -y docker || echo 'Docker déjà installé';
-                            sudo service docker start;
-                            sudo usermod -aG docker ec2-user;
-                            docker pull $DOCKER_IMAGE;
-                            docker stop angular-app || echo 'Pas de conteneur en cours';
-                            docker rm angular-app || echo 'Pas de conteneur à supprimer';
-                            docker run -d -p 80:80 --name angular-app $DOCKER_IMAGE
-                        "
-                        '''
-                    }
-                    echo "Étape : Déployer sur AWS EC2 terminée avec succès."
                 }
             }
         }
