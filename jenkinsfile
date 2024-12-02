@@ -71,6 +71,7 @@ pipeline {
     post {
         always {
             echo "Pipeline terminé."
+            sh 'docker logout' // Déconnexion de Docker Hub
         }
         failure {
             echo "Le pipeline a échoué. Vérifiez les étapes précédentes."
