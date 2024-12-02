@@ -27,6 +27,22 @@ pipeline {
             }
         }
 
+        stage('Exécuter les tests unitaires') {
+            steps {
+                script {
+                    echo "Étape : Exécuter les tests unitaires démarrée."
+                    sh '''
+                    # Lancement des tests avec Karma et ChromeHeadless
+                    npm test -- --watch=false --browsers=ChromeHeadless || {
+                        echo "Les tests unitaires ont échoué. Abandon du pipeline."
+                        exit 1
+                    }
+                    '''
+                    echo "Étape : Exécuter les tests unitaires terminée avec succès."
+                }
+            }
+        }
+
         stage('Construire l\'image Docker') {
             steps {
                 script {
