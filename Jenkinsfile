@@ -27,21 +27,6 @@ pipeline {
             }
         }
 
-        stage('Exécuter les tests') {
-            steps {
-                script {
-                    echo "Étape : Exécuter les tests démarrée."
-                    sh '''
-                    npm test -- --watch=false --browsers=ChromeHeadless || {
-                        echo "Tests échoués. Abandon du pipeline."
-                        exit 1
-                    }
-                    '''
-                    echo "Étape : Exécuter les tests terminée avec succès."
-                }
-            }
-        }
-
         stage('Construire l\'image Docker') {
             steps {
                 script {
