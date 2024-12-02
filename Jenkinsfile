@@ -4,6 +4,7 @@ pipeline {
     environment {
         DOCKERHUB_CREDENTIALS = credentials('dockerhub_credentials') // Docker Hub credentials
         DOCKER_IMAGE = "assabbour/angular-app:latest" // Nom de l'image Docker
+        CHROME_BIN = "/usr/bin/chromium-browser" // Chemin pour ChromeHeadless
     }
 
     stages {
@@ -17,11 +18,31 @@ pipeline {
             }
         }
 
+        stage('Vérification environnement') {
+            steps {
+                script {
+                    echo "Étape : Vérification de l'environnement démarrée."
+                    sh '''
+                    echo "Vérification de la version de Node.js et npm :"
+                    node -v
+                    npm -v
+                    echo "Vérification de ChromeHeadless :"
+                    echo "CHROME_BIN: $CHROME_BIN"
+                    $CHROME_BIN --version || echo "Chromium non trouvé"
+                    '''
+                    echo "Étape : Vérification de l'environnement terminée avec succès."
+                }
+            }
+        }
+
         stage('Installer les dépendances') {
             steps {
                 script {
                     echo "Étape : Installer les dépendances démarrée."
-                    sh 'npm install'
+                    sh '''
+                    rm -rf node_modules package-lock.json
+                    npm install
+                    '''
                     echo "Étape : Installer les dépendances terminée avec succès."
                 }
             }
