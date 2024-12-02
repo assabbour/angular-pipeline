@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('docker-hub-creds') // Docker Hub credentials
+        DOCKERHUB_CREDENTIALS = credentials('dockerhub_credentials') // Docker Hub credentials
         DOCKER_IMAGE = "assabbour/angular-app:latest" // Nom de l'image Docker
     }
 
